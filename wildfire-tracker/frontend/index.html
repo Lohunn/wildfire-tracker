@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ember — Wildfire Context Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">◎</span>
+      <div class="brand-text">
+        <h1>Ember</h1>
+        <p>Wildfire context tracker</p>
+      </div>
+    </div>
+
+    <button class="btn-add" id="btnShowAdd">+ Watch a location</button>
+
+    <form class="add-form hidden" id="addForm">
+      <label>Label
+        <input type="text" id="fLabel" placeholder="Mom's house" required />
+      </label>
+      <label>Address
+        <input type="text" id="fAddress" placeholder="123 Main St, Boulder, CO" required />
+      </label>
+      <label>Alert radius (miles)
+        <input type="number" id="fRadius" value="15" min="1" max="100" />
+      </label>
+      <div class="add-form-actions">
+        <button type="submit" class="btn-primary">Save & scan</button>
+        <button type="button" class="btn-ghost" id="btnCancelAdd">Cancel</button>
+      </div>
+      <p class="form-error hidden" id="addError"></p>
+    </form>
+
+    <div class="location-list" id="locationList">
+      <p class="empty-hint">No saved locations yet. Add one to start scanning for nearby heat detections.</p>
+    </div>
+
+    <div class="sidebar-footer">
+      <span id="healthDot" class="health-dot"></span>
+      <span id="healthText">Checking data sources…</span>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <div class="selected-location" id="selectedLocationLabel">Select a saved location</div>
+      <div class="topbar-actions">
+        <button class="btn-ghost" id="btnRefresh" disabled>↻ Rescan</button>
+        <button class="btn-ghost" id="btnAlerts">🔔 <span id="alertCount">0</span></button>
+      </div>
+    </div>
+
+    <div class="content-grid">
+
+      <div class="map-panel">
+        <div id="map"></div>
+        <div class="timeline-bar" id="timelineBar">
+          <div class="timeline-label">
+            <span>24-HOUR DETECTION TIMELINE</span>
+            <span id="timelineTime">—</span>
+          </div>
+          <input type="range" id="timelineSlider" min="0" max="24" value="24" step="1" disabled />
+          <p class="timeline-caveat">Replays satellite passes over the last 24h. This shows a change in detected activity, not confirmed fire spread — cloud cover and satellite schedules affect how many points appear.</p>
+        </div>
+      </div>
+
+      <div class="detail-panel" id="detailPanel">
+        <div class="detail-empty" id="detailEmpty">
+          <p>Pick a saved location, then select a fire cluster on the map to see its score breakdown.</p>
+        </div>
+        <div class="cluster-list" id="clusterList"></div>
+      </div>
+
+    </div>
+
+    <div class="disclaimer-strip" id="disclaimerStrip"></div>
+
+  </main>
+
+  <div class="alerts-drawer hidden" id="alertsDrawer">
+    <div class="drawer-header">
+      <h2>Alerts</h2>
+      <button class="btn-ghost" id="btnCloseAlerts">✕</button>
+    </div>
+    <div class="drawer-body" id="alertsBody">
+      <p class="empty-hint">No alerts yet.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "wildfire-context-tracker",
+  "version": "1.0.0",
+  "description": "Tracks NASA FIRMS wildfire heat detections near saved locations, enriches them with NWS weather and EPA AirNow air-quality data, computes a contextual risk score, and raises alerts.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  }
+}
