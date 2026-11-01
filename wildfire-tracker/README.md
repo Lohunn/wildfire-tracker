@@ -9,6 +9,17 @@ This is an informational tool, not an evacuation system. It says "here's
 what nearby satellites and sensors are showing and why," not "a fire is
 coming for you."
 
+## UI Design
+
+The interface follows the **Motion Design System** (`DESIGN.md`) — a dark
+theme built on Near Black (#080808) with Vivid Amber (#FBD509) accents,
+TASA Orbiter typography, and pill-shaped controls.
+
+The landing page features an **animated procedural fire** rendered on a
+`<canvas>` element, a "How it works" pipeline breakdown, and a one-click
+transition into the full tracker dashboard with map, score dials, 24h
+timeline, and alert drawer.
+
 ## How it works (pipeline)
 
 ```
@@ -24,35 +35,38 @@ lat/lon ──► NASA FIRMS Area API (VIIRS, 3 satellites) ──► raw heat d
    ├──────────────────────────────────────────────► NWS  (wind, humidity, downwind check)
    ├──────────────────────────────────────────────► AirNow (AQI near the saved location)
    └──────────────────────────────────────────────► NIFC WFIGS (official incident match)
-                                                              │
-                                                              ▼
-                                                    score (0-100) + plain-English reasons
-                                                              │
-                                                              ▼
-                                              alert if new / re-confirmed / score jumped
+                                                               │
+                                                               ▼
+                                                     score (0-100) + plain-English reasons
+                                                               │
+                                                               ▼
+                                               alert if new / re-confirmed / score jumped
 ```
 
 ## Project layout
 
 ```
+DESIGN.md                      Motion Design System tokens & rules
 backend/
-  server.js              Express app entry point
-  config.js               Tunable constants (radii, thresholds, FIRMS sources)
+  server.js                    Express app entry point
+  config.js                    Tunable constants (radii, thresholds, FIRMS sources)
   services/
-    geoMath.js             Distance, bearing, bounding-box math
-    geocode.js              Census Geocoder client
-    firms.js                 NASA FIRMS Area API client + CSV parser
-    clustering.js            Groups raw detections into fire-event clusters
-    weather.js                NWS client, wind-direction downwind check
+    geoMath.js                 Distance, bearing, bounding-box math
+    geocode.js                 Census Geocoder client
+    firms.js                   NASA FIRMS Area API client + CSV parser
+    clustering.js              Groups raw detections into fire-event clusters
+    weather.js                 NWS client, wind-direction downwind check
     airQuality.js              EPA AirNow current-observations client
-    wfigs.js                    NIFC official-incident matching
-    scoring.js                   0-100 context score + explanation strings
-    alerts.js                     Alert-trigger rules + dedupe
-    pipeline.js                    Orchestrates the full flow per location
-  routes/locations.js       REST API (add/list/delete/evaluate/alerts)
-  data/store.js              In-memory store (swap for a real DB later)
+    wfigs.js                   NIFC official-incident matching
+    scoring.js                 0-100 context score + explanation strings
+    alerts.js                  Alert-trigger rules + dedupe
+    pipeline.js                Orchestrates the full flow per location
+  routes/locations.js          REST API (add/list/delete/evaluate/alerts)
+  data/store.js                In-memory store (swap for a real DB later)
 frontend/
-  index.html / style.css / app.js   Dashboard: map, score dials, 24h timeline, alerts
+  index.html                   Landing page (hero + pipeline) & tracker dashboard
+  style.css                    Motion Design System implementation
+  app.js                       Fire canvas animation, map, score dials, alerts
 ```
 
 ## Running it
@@ -89,6 +103,9 @@ Get free keys:
   lat/lon + day bucket, so the same fire doesn't re-trigger a notification
   every time the pipeline re-runs — only on a new cluster, a new satellite
   confirming it, or a meaningful score jump.
+- **Motion Design System.** The interface follows a measured dark design
+  system with TASA Orbiter type, amber accents, and quick transitions.
+  See `DESIGN.md` for all tokens and rules.
 
 ## Known limitations (also surfaced in the UI)
 
@@ -113,3 +130,6 @@ Get free keys:
   drawer.
 - Swap the in-memory clustering for a spatial index if watching many
   locations at national scale.
+- Add an ML model for fire spread prediction based on historical FIRMS
+  data, terrain, and weather patterns.
+

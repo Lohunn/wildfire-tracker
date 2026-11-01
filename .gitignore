@@ -1,2 +1,15 @@
-.env
+# Dependencies
 node_modules/
+
+# Environment files (API keys)
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+

@@ -1,24 +1,179 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EMBER — Wildfire Context Tracker
+   Frontend application logic with Motion design system
+   ═══════════════════════════════════════════════════════════════════ */
+
 const API = '/api';
 
 let map, markersLayer;
 let locations = [];
 let activeLocationId = null;
-let activeEvaluation = null; // last /evaluate response for the active location
+let activeEvaluation = null;
 
-// ---------------- Init ----------------
+// ═══════════════════════════════════════════════════════════════════
+// FIRE CANVAS — animated procedural fire on the hero section
+// ═══════════════════════════════════════════════════════════════════
+
+function initFireCanvas() {
+  const canvas = document.getElementById('fireCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let w, h;
+  const particles = [];
+  const PARTICLE_COUNT = 120;
+
+  function resize() {
+    w = canvas.width = canvas.parentElement.offsetWidth;
+    h = canvas.height = canvas.parentElement.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() { this.reset(); }
+
+    reset() {
+      this.x = w * 0.3 + Math.random() * w * 0.4;
+      this.y = h + Math.random() * 20;
+      this.vx = (Math.random() - 0.5) * 1.2;
+      this.vy = -(1.5 + Math.random() * 3);
+      this.radius = 2 + Math.random() * 4;
+      this.life = 0;
+      this.maxLife = 60 + Math.random() * 80;
+
+      // Color: warm amber/yellow palette matching --primary and --tertiary
+      const t = Math.random();
+      if (t < 0.3) {
+        this.color = { r: 251, g: 213, b: 9 };    // #FBD509 primary
+      } else if (t < 0.6) {
+        this.color = { r: 255, g: 219, b: 42 };    // #FFDB2A tertiary
+      } else if (t < 0.8) {
+        this.color = { r: 255, g: 160, b: 20 };    // warm orange
+      } else {
+        this.color = { r: 255, g: 100, b: 30 };    // deep ember
+      }
+    }
+
+    update() {
+      this.life++;
+      this.x += this.vx + (Math.random() - 0.5) * 0.5;
+      this.y += this.vy;
+      this.vy *= 0.995;
+      this.vx *= 0.99;
+      this.radius *= 0.997;
+
+      if (this.life > this.maxLife || this.y < -20 || this.radius < 0.3) {
+        this.reset();
+      }
+    }
+
+    draw(ctx) {
+      const progress = this.life / this.maxLife;
+      const alpha = Math.sin(progress * Math.PI) * 0.6;
+      const { r, g, b } = this.color;
+
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.fill();
+
+      // Glow
+      const gradient = ctx.createRadialGradient(
+        this.x, this.y, 0,
+        this.x, this.y, this.radius * 3
+      );
+      gradient.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.3})`);
+      gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius * 3, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const p = new Particle();
+    p.life = Math.floor(Math.random() * p.maxLife);
+    p.y = h - (p.life / p.maxLife) * h;
+    particles.push(p);
+  }
+
+  // Bottom glow gradient (static)
+  function drawBaseGlow() {
+    const gradient = ctx.createLinearGradient(0, h, 0, h * 0.4);
+    gradient.addColorStop(0, 'rgba(251,213,9,0.08)');
+    gradient.addColorStop(0.3, 'rgba(255,160,20,0.03)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  let animId;
+  function animate() {
+    ctx.clearRect(0, 0, w, h);
+    drawBaseGlow();
+    for (const p of particles) {
+      p.update();
+      p.draw(ctx);
+    }
+    animId = requestAnimationFrame(animate);
+  }
+
+  // Only animate when hero is visible
+  const observer = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      if (!animId) animate();
+    } else {
+      cancelAnimationFrame(animId);
+      animId = null;
+    }
+  }, { threshold: 0.1 });
+  observer.observe(canvas.parentElement);
+
+  animate();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATION — Hero ↔ App transitions
+// ═══════════════════════════════════════════════════════════════════
+
+function showApp() {
+  document.getElementById('heroSection').style.display = 'none';
+  document.getElementById('howSection').style.display = 'none';
+  document.getElementById('appSection').classList.add('active');
+  if (map) map.invalidateSize();
+}
+
+function showHero() {
+  document.getElementById('heroSection').style.display = '';
+  document.getElementById('howSection').style.display = '';
+  document.getElementById('appSection').classList.remove('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MAP INIT
+// ═══════════════════════════════════════════════════════════════════
 
 function initMap() {
   map = L.map('map', { zoomControl: true }).setView([39.5, -98.35], 4);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap, © CARTO',
-    subdomains: 'abcd',
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
+    className: 'dark-tiles',
   }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+
 async function boot() {
-  initMap();
+  initFireCanvas();
+  wireUpNavigation();
+
+  // Defer map init until the app section is shown
   await checkHealth();
   await loadLocations();
   wireUpUI();
@@ -45,12 +200,18 @@ async function checkHealth() {
   }
 }
 
-// ---------------- Locations ----------------
+// ═══════════════════════════════════════════════════════════════════
+// LOCATIONS
+// ═══════════════════════════════════════════════════════════════════
 
 async function loadLocations() {
-  const res = await fetch(`${API}/locations`);
-  locations = await res.json();
-  renderLocationList();
+  try {
+    const res = await fetch(`${API}/locations`);
+    locations = await res.json();
+    renderLocationList();
+  } catch {
+    // Backend may not be running yet — don't crash
+  }
 }
 
 function renderLocationList() {
@@ -100,7 +261,7 @@ async function runEvaluation(id) {
     updateRiskPill(id, activeEvaluation);
     document.getElementById('disclaimerStrip').textContent = activeEvaluation.disclaimer;
     setupTimeline(activeEvaluation);
-    await loadAlertsFor(id); // pick up any newly-created alerts
+    await loadAlertsFor(id);
   } catch (err) {
     document.getElementById('detailEmpty').classList.remove('hidden');
     document.getElementById('detailEmpty').innerHTML = `<p>⚠ ${escapeHtml(err.message)}</p>`;
@@ -109,8 +270,9 @@ async function runEvaluation(id) {
 }
 
 function setDetailLoading() {
-  document.getElementById('detailEmpty').classList.remove('hidden');
-  document.getElementById('detailEmpty').innerHTML = '<p>Scanning FIRMS, NWS, and AirNow…</p>';
+  const empty = document.getElementById('detailEmpty');
+  empty.classList.remove('hidden');
+  empty.innerHTML = '<p class="loading-pulse">Scanning FIRMS, NWS, and AirNow…</p>';
   document.getElementById('clusterList').innerHTML = '';
 }
 
@@ -119,7 +281,7 @@ function updateRiskPill(id, evaluation) {
   if (!pill) return;
   const inRadius = evaluation.clusters.filter((c) => c.insideAlertRadius);
   if (inRadius.length === 0) {
-    pill.textContent = 'clear';
+    pill.textContent = 'CLEAR';
     pill.className = 'risk-pill low';
     return;
   }
@@ -128,12 +290,14 @@ function updateRiskPill(id, evaluation) {
   pill.className = 'risk-pill ' + (top >= 60 ? 'high' : top >= 30 ? 'medium' : 'low');
 }
 
-// ---------------- Map ----------------
+// ═══════════════════════════════════════════════════════════════════
+// MAP RENDERING
+// ═══════════════════════════════════════════════════════════════════
 
 function scoreColor(score) {
-  if (score >= 60) return '#ff6b35';
-  if (score >= 30) return '#e8a33d';
-  return '#4a9d7f';
+  if (score >= 60) return '#FF4945'; // --error / high risk
+  if (score >= 30) return '#FBD509'; // --primary / medium
+  return '#52CD86';                  // --success / low
 }
 
 function renderMap(evaluation) {
@@ -142,8 +306,8 @@ function renderMap(evaluation) {
   // Saved location marker
   L.circleMarker([evaluation.location.lat, evaluation.location.lon], {
     radius: 7,
-    color: '#f2ede4',
-    fillColor: '#f2ede4',
+    color: '#EDEBE5',
+    fillColor: '#EDEBE5',
     fillOpacity: 1,
     weight: 2,
   })
@@ -153,7 +317,7 @@ function renderMap(evaluation) {
   // Alert radius ring
   L.circle([evaluation.location.lat, evaluation.location.lon], {
     radius: evaluation.location.alertRadiusMiles * 1609.34,
-    color: '#948c7d',
+    color: '#979D97',
     weight: 1,
     dashArray: '4 4',
     fillOpacity: 0.03,
@@ -183,7 +347,9 @@ function popupHtml(cluster) {
   `;
 }
 
-// ---------------- Cluster detail list + score dial ----------------
+// ═══════════════════════════════════════════════════════════════════
+// CLUSTER DETAIL LIST & SCORE DIAL
+// ═══════════════════════════════════════════════════════════════════
 
 function renderClusterList(evaluation) {
   const list = document.getElementById('clusterList');
@@ -215,8 +381,8 @@ function renderClusterList(evaluation) {
         </div>
       </div>
       ${reasonsHtml}
-      ${cluster.scoreLimitedData ? '<div class="cluster-flags">Limited data — weather or air-quality reading unavailable</div>' : ''}
-      ${cluster.officialIncident ? `<div class="incident-tag">Matched: ${escapeHtml(cluster.officialIncident.name)} (${cluster.officialIncident.percentContained ?? '?'}% contained)</div>` : ''}
+      ${cluster.scoreLimitedData ? '<div class="cluster-flags">LIMITED DATA — WEATHER OR AIR-QUALITY READING UNAVAILABLE</div>' : ''}
+      ${cluster.officialIncident ? `<div class="incident-tag">MATCHED: ${escapeHtml(cluster.officialIncident.name)} (${cluster.officialIncident.percentContained ?? '?'}% CONTAINED)</div>` : ''}
     `;
     list.appendChild(card);
   }
@@ -228,62 +394,58 @@ function scrollToCluster(clusterId) {
 }
 
 /**
- * Signature visual: a wind-rose dial. The ring fill encodes the score
- * (0-100), and the arrow (when wind data is available) shows which way the
- * wind is blowing — pointed red if that direction is roughly toward the
- * saved location (downwind), gray otherwise. One glyph, three data points.
+ * Score dial SVG — ring fill encodes 0-100, arrow shows wind direction.
+ * Colors use the Motion design system tokens.
  */
 function scoreDialSvg(score, windDirectionDeg, downwind) {
   const r = 22;
   const c = 2 * Math.PI * r;
   const offset = c - (score / 100) * c;
   const color = scoreColor(score);
+  const arrowColor = downwind ? '#FF4945' : '#979D97';
   const arrow =
     windDirectionDeg != null
       ? `<g transform="rotate(${(windDirectionDeg + 180) % 360} 28 28)">
-           <line x1="28" y1="28" x2="28" y2="12" stroke="${downwind ? '#ff6b35' : '#948c7d'}" stroke-width="2" stroke-linecap="round"/>
-           <polygon points="28,8 24,15 32,15" fill="${downwind ? '#ff6b35' : '#948c7d'}"/>
+           <line x1="28" y1="28" x2="28" y2="12" stroke="${arrowColor}" stroke-width="2" stroke-linecap="round"/>
+           <polygon points="28,8 24,15 32,15" fill="${arrowColor}"/>
          </g>`
       : '';
   return `
     <svg class="score-dial" width="56" height="56" viewBox="0 0 56 56">
-      <circle cx="28" cy="28" r="${r}" fill="none" stroke="#3a3327" stroke-width="5"/>
+      <circle cx="28" cy="28" r="${r}" fill="none" stroke="#343034" stroke-width="5"/>
       <circle cx="28" cy="28" r="${r}" fill="none" stroke="${color}" stroke-width="5"
         stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"
         transform="rotate(-90 28 28)"/>
       ${arrow}
-      <text x="28" y="32" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="13" fill="#f2ede4">${score}</text>
+      <text x="28" y="32" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#EDEBE5">${score}</text>
     </svg>
   `;
 }
 
-// ---------------- Timeline ----------------
+// ═══════════════════════════════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════════════════════════════
 
 function setupTimeline(evaluation) {
   const slider = document.getElementById('timelineSlider');
   const timeLabel = document.getElementById('timelineTime');
   slider.disabled = false;
   slider.value = 24;
-  timeLabel.textContent = 'now';
+  timeLabel.textContent = 'NOW';
 
   slider.oninput = () => {
     const hoursAgo = 24 - Number(slider.value);
     const cutoff = Date.now() - hoursAgo * 3.6e6;
-    timeLabel.textContent = hoursAgo === 0 ? 'now' : `${hoursAgo}h ago`;
+    timeLabel.textContent = hoursAgo === 0 ? 'NOW' : `${hoursAgo}H AGO`;
     filterMapByTime(evaluation, cutoff);
   };
 }
 
 function filterMapByTime(evaluation, cutoffMs) {
-  markersLayer.eachLayer((layer) => {
-    if (!layer._latlng || layer.options.className !== 'fire-marker') return;
-  });
-  // Simplest correct approach: redraw markers whose cluster has at least one
-  // raw point at or before the cutoff, sized by how many points qualify.
   markersLayer.clearLayers();
 
   L.circleMarker([evaluation.location.lat, evaluation.location.lon], {
-    radius: 7, color: '#f2ede4', fillColor: '#f2ede4', fillOpacity: 1, weight: 2,
+    radius: 7, color: '#EDEBE5', fillColor: '#EDEBE5', fillOpacity: 1, weight: 2,
   }).addTo(markersLayer);
 
   for (const cluster of evaluation.clusters) {
@@ -302,13 +464,19 @@ function filterMapByTime(evaluation, cutoffMs) {
   }
 }
 
-// ---------------- Alerts ----------------
+// ═══════════════════════════════════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════════════════════════════════
 
 async function loadAlertsFor(locationId) {
-  const res = await fetch(`${API}/locations/${locationId}/alerts`);
-  const alerts = await res.json();
-  document.getElementById('alertCount').textContent = alerts.length;
-  renderAlerts(alerts);
+  try {
+    const res = await fetch(`${API}/locations/${locationId}/alerts`);
+    const alerts = await res.json();
+    document.getElementById('alertCount').textContent = alerts.length;
+    renderAlerts(alerts);
+  } catch {
+    // non-critical
+  }
 }
 
 function renderAlerts(alerts) {
@@ -322,13 +490,43 @@ function renderAlerts(alerts) {
       (a) => `
       <div class="alert-item">
         <div class="alert-reason">${escapeHtml(a.reason)}</div>
-        <div class="alert-meta">${escapeHtml(a.approxDistanceMiles)} mi · ${escapeHtml(a.confidence)} confidence · score ${a.score} · ${timeAgo(a.triggeredAt)}</div>
+        <div class="alert-meta">${escapeHtml(a.approxDistanceMiles)} MI · ${escapeHtml(a.confidence)} CONFIDENCE · SCORE ${a.score} · ${timeAgo(a.triggeredAt)}</div>
       </div>`
     )
     .join('');
 }
 
-// ---------------- Add-location form ----------------
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATION WIRING
+// ═══════════════════════════════════════════════════════════════════
+
+function wireUpNavigation() {
+  // Hero → App
+  const launchBtns = [
+    document.getElementById('heroLaunchBtn'),
+    document.getElementById('heroStartBtn'),
+  ];
+  launchBtns.forEach((btn) => {
+    if (btn) btn.addEventListener('click', () => {
+      showApp();
+      if (!map) initMap();
+    });
+  });
+
+  // "How it works" button scrolls to that section
+  const learnBtn = document.getElementById('heroLearnBtn');
+  if (learnBtn) learnBtn.addEventListener('click', () => {
+    document.getElementById('howSection').scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // App → Hero
+  const backBtn = document.getElementById('btnBackToHero');
+  if (backBtn) backBtn.addEventListener('click', showHero);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADD-LOCATION FORM & UI WIRING
+// ═══════════════════════════════════════════════════════════════════
 
 function wireUpUI() {
   const showBtn = document.getElementById('btnShowAdd');
@@ -385,7 +583,9 @@ function wireUpUI() {
   });
 }
 
-// ---------------- Utils ----------------
+// ═══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({
@@ -401,4 +601,9 @@ function timeAgo(iso) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// GO
+// ═══════════════════════════════════════════════════════════════════
+
 boot();
+

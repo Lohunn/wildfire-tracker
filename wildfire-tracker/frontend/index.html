@@ -1,106 +1,260 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ember — Wildfire Context Tracker</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ember — Wildfire Context Tracker</title>
+
+  <!-- Leaflet map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Fonts: TASA Orbiter (headline), Geist Mono (code/labels) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- TASA Orbiter via Fontsource CDN -->
+  <style>
+    @font-face {
+      font-family: 'TASA Orbiter';
+      src: url('https://cdn.jsdelivr.net/fontsource/fonts/tasa-orbiter-display@latest/latin-700-normal.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'TASA Orbiter';
+      src: url('https://cdn.jsdelivr.net/fontsource/fonts/tasa-orbiter-display@latest/latin-400-normal.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
+
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div class="app">
+<!-- ═══════════════════════  HERO / LANDING  ═══════════════════════ -->
+<section class="hero" id="heroSection">
 
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-mark">◎</span>
-      <div class="brand-text">
-        <h1>Ember</h1>
-        <p>Wildfire context tracker</p>
+  <!-- Animated fire canvas background -->
+  <canvas id="fireCanvas"></canvas>
+
+  <!-- Navigation bar -->
+  <nav class="hero-nav">
+    <div class="hero-nav-brand">
+      <svg class="brand-icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M14 2C14 2 8 8 8 14a6 6 0 0012 0c0-6-6-12-6-12z" fill="#FBD509" opacity="0.9"/>
+        <path d="M14 10c0 0-3 3-3 6a3 3 0 006 0c0-3-3-6-3-6z" fill="#FFDB2A"/>
+      </svg>
+      <span class="brand-name">EMBER</span>
+    </div>
+    <div class="hero-nav-links">
+      <a href="#" class="nav-link" id="navDocs">DOCS</a>
+      <a href="#" class="nav-link" id="navGithub">GITHUB</a>
+      <button class="btn-primary" id="heroLaunchBtn">LAUNCH TRACKER</button>
+    </div>
+  </nav>
+
+  <!-- Hero content -->
+  <div class="hero-content">
+    <p class="hero-eyebrow">WILDFIRE CONTEXT TRACKER</p>
+    <h1 class="hero-title">
+      Track fires<br/>before they<br/>reach you.
+    </h1>
+    <p class="hero-subtitle">
+      Ember monitors NASA satellite heat detections near places you care about,
+      enriches each nearby fire with live weather and air‑quality context,
+      and alerts you when something changes.
+    </p>
+    <div class="hero-actions">
+      <button class="btn-primary btn-lg" id="heroStartBtn">GET STARTED</button>
+      <button class="btn-outline btn-lg" id="heroLearnBtn">HOW IT WORKS</button>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-value">3</span>
+        <span class="stat-label">VIIRS SATELLITES</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-value">5</span>
+        <span class="stat-label">DATA SOURCES</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-value">0–100</span>
+        <span class="stat-label">RISK SCORING</span>
       </div>
     </div>
+  </div>
 
-    <button class="btn-add" id="btnShowAdd">+ Watch a location</button>
+  <!-- Scroll indicator -->
+  <div class="scroll-indicator" id="scrollIndicator">
+    <span>SCROLL</span>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M7 2v10M3 8l4 4 4-4" stroke="#979D97" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</section>
 
-    <form class="add-form hidden" id="addForm">
-      <label>Label
-        <input type="text" id="fLabel" placeholder="Mom's house" required />
-      </label>
-      <label>Address
-        <input type="text" id="fAddress" placeholder="123 Main St, Boulder, CO" required />
-      </label>
-      <label>Alert radius (miles)
-        <input type="number" id="fRadius" value="15" min="1" max="100" />
-      </label>
-      <div class="add-form-actions">
-        <button type="submit" class="btn-primary">Save & scan</button>
-        <button type="button" class="btn-ghost" id="btnCancelAdd">Cancel</button>
+<!-- ═══════════════════════  HOW IT WORKS  ═══════════════════════ -->
+<section class="section-how" id="howSection">
+  <div class="section-inner">
+    <p class="section-eyebrow">PIPELINE</p>
+    <h2 class="section-title">How Ember works</h2>
+    <div class="pipeline-grid">
+      <div class="pipeline-step">
+        <div class="step-number">01</div>
+        <h3 class="step-title">Geocode</h3>
+        <p class="step-body">Your saved address is converted to lat/lon via the US Census Geocoder — free, no key required.</p>
       </div>
-      <p class="form-error hidden" id="addError"></p>
-    </form>
-
-    <div class="location-list" id="locationList">
-      <p class="empty-hint">No saved locations yet. Add one to start scanning for nearby heat detections.</p>
-    </div>
-
-    <div class="sidebar-footer">
-      <span id="healthDot" class="health-dot"></span>
-      <span id="healthText">Checking data sources…</span>
-    </div>
-  </aside>
-
-  <main class="main">
-
-    <div class="topbar">
-      <div class="selected-location" id="selectedLocationLabel">Select a saved location</div>
-      <div class="topbar-actions">
-        <button class="btn-ghost" id="btnRefresh" disabled>↻ Rescan</button>
-        <button class="btn-ghost" id="btnAlerts">🔔 <span id="alertCount">0</span></button>
+      <div class="pipeline-step">
+        <div class="step-number">02</div>
+        <h3 class="step-title">Detect</h3>
+        <p class="step-body">NASA FIRMS queries three VIIRS satellites for heat anomalies within your watch radius.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number">03</div>
+        <h3 class="step-title">Cluster</h3>
+        <p class="step-body">Nearby simultaneous points are grouped into fire "events" so you don't see duplicate alerts.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number">04</div>
+        <h3 class="step-title">Enrich</h3>
+        <p class="step-body">Each cluster is enriched with NWS weather, AirNow AQI, and NIFC official incident data.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number">05</div>
+        <h3 class="step-title">Score</h3>
+        <p class="step-body">An explainable 0–100 score is computed with plain‑English reasons — not a black box.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number">06</div>
+        <h3 class="step-title">Alert</h3>
+        <p class="step-body">Deduplicated alerts fire on new clusters, satellite confirmations, or score jumps.</p>
       </div>
     </div>
+  </div>
+</section>
 
-    <div class="content-grid">
+<!-- ═══════════════════════  TRACKER APP  ═══════════════════════ -->
+<section class="app-section" id="appSection">
 
-      <div class="map-panel">
-        <div id="map"></div>
-        <div class="timeline-bar" id="timelineBar">
-          <div class="timeline-label">
-            <span>24-HOUR DETECTION TIMELINE</span>
-            <span id="timelineTime">—</span>
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="sidebar-brand">
+          <svg class="brand-icon-sm" width="20" height="20" viewBox="0 0 28 28" fill="none">
+            <path d="M14 2C14 2 8 8 8 14a6 6 0 0012 0c0-6-6-12-6-12z" fill="#FBD509" opacity="0.9"/>
+            <path d="M14 10c0 0-3 3-3 6a3 3 0 006 0c0-3-3-6-3-6z" fill="#FFDB2A"/>
+          </svg>
+          <span class="sidebar-brand-text">EMBER</span>
+        </div>
+        <button class="btn-back" id="btnBackToHero" title="Back to home">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="#979D97" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <button class="btn-primary btn-add" id="btnShowAdd">+ WATCH A LOCATION</button>
+
+      <form class="add-form hidden" id="addForm">
+        <label class="form-label">
+          LABEL
+          <input type="text" id="fLabel" placeholder="Mom's house" required class="form-input" />
+        </label>
+        <label class="form-label">
+          ADDRESS
+          <input type="text" id="fAddress" placeholder="123 Main St, Boulder, CO" required class="form-input" />
+        </label>
+        <label class="form-label">
+          ALERT RADIUS (MILES)
+          <input type="number" id="fRadius" value="15" min="1" max="100" class="form-input" />
+        </label>
+        <div class="add-form-actions">
+          <button type="submit" class="btn-primary">SAVE & SCAN</button>
+          <button type="button" class="btn-outline" id="btnCancelAdd">CANCEL</button>
+        </div>
+        <p class="form-error hidden" id="addError"></p>
+      </form>
+
+      <div class="location-list" id="locationList">
+        <p class="empty-hint">No saved locations yet. Add one to start scanning for nearby heat detections.</p>
+      </div>
+
+      <div class="sidebar-footer">
+        <span id="healthDot" class="health-dot"></span>
+        <span id="healthText" class="health-text">Checking data sources…</span>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+
+      <div class="topbar">
+        <div class="topbar-location" id="selectedLocationLabel">Select a saved location</div>
+        <div class="topbar-actions">
+          <button class="btn-outline btn-sm" id="btnRefresh" disabled>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 7a5.5 5.5 0 119.14 4.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M1.5 2.5v4.5H6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            RESCAN
+          </button>
+          <button class="btn-outline btn-sm" id="btnAlerts">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5c-2.5 0-4 2-4 4.5 0 2-1 3-1 3h10s-1-1-1-3c0-2.5-1.5-4.5-4-4.5zM5.5 12a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="alertCount">0</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <!-- Map -->
+        <div class="map-panel">
+          <div id="map"></div>
+          <div class="timeline-bar" id="timelineBar">
+            <div class="timeline-label">
+              <span>24-HOUR DETECTION TIMELINE</span>
+              <span id="timelineTime" class="timeline-time">—</span>
+            </div>
+            <input type="range" id="timelineSlider" min="0" max="24" value="24" step="1" disabled class="timeline-slider" />
+            <p class="timeline-caveat">Replays satellite passes over the last 24h. Shows change in detected activity, not confirmed fire spread — cloud cover and satellite schedules affect how many points appear.</p>
           </div>
-          <input type="range" id="timelineSlider" min="0" max="24" value="24" step="1" disabled />
-          <p class="timeline-caveat">Replays satellite passes over the last 24h. This shows a change in detected activity, not confirmed fire spread — cloud cover and satellite schedules affect how many points appear.</p>
+        </div>
+
+        <!-- Detail panel -->
+        <div class="detail-panel" id="detailPanel">
+          <div class="detail-empty" id="detailEmpty">
+            <p>Pick a saved location, then select a fire cluster on the map to see its score breakdown.</p>
+          </div>
+          <div class="cluster-list" id="clusterList"></div>
         </div>
       </div>
 
-      <div class="detail-panel" id="detailPanel">
-        <div class="detail-empty" id="detailEmpty">
-          <p>Pick a saved location, then select a fire cluster on the map to see its score breakdown.</p>
-        </div>
-        <div class="cluster-list" id="clusterList"></div>
-      </div>
+      <div class="disclaimer-strip" id="disclaimerStrip"></div>
+    </main>
 
-    </div>
+  </div>
 
-    <div class="disclaimer-strip" id="disclaimerStrip"></div>
-
-  </main>
-
+  <!-- Alerts drawer -->
   <div class="alerts-drawer hidden" id="alertsDrawer">
     <div class="drawer-header">
       <h2>Alerts</h2>
-      <button class="btn-ghost" id="btnCloseAlerts">✕</button>
+      <button class="btn-ghost" id="btnCloseAlerts">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="#EDEBE5" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
     </div>
     <div class="drawer-body" id="alertsBody">
       <p class="empty-hint">No alerts yet.</p>
     </div>
   </div>
 
-</div>
+</section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
+
